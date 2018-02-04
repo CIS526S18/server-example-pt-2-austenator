@@ -6,10 +6,10 @@ const PORT = 3067;
 // Import the HTTP library
 const http = require('http');
 
-// Import the fs library 
+// Import the fs library
 const fs = require('fs');
 
-const cache = {};
+//const cache = {};
 //cache['openhouse.html'] = fs.readFileSync('public/openhouse.html');
 //cache['openhouse.css'] = fs.readFileSync('public/openhouse.css');
 //cache['openhouse.js'] = fs.readFileSync('public/openhouse.js');
@@ -31,9 +31,9 @@ function serveFile(path, res){
     });
 }
 
-/** @function serveIndex 
+/** @function serveIndex
  * Serves index page.
- * @param {http.ServerResponse} res 
+ * @param {http.ServerResponse} res
  */
 function serveIndex(path, res){
     fs.readdir(path, function(err, files){
