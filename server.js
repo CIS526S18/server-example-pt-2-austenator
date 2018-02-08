@@ -37,14 +37,19 @@ function myError(res, status_code=500, message='Server error!'){
   return;
 }
 
+function removePublic(str){
+  return str.slice(6);
+}
+
 /** @function serveFile
  * Serves the specified file.
- * @param {string} path - specifies the file path to read.
+ * @param {string} thisPath - specifies the file path to read.
  * @param {http.serverResponse} res - the http response object.
  */
-function serveFile(path, res){
-  console.log('About to serve this file: ' + path);
-    fs.readFile(path, function(err, data){
+function serveFile(thisPath, res){
+  // thisPath = removePublic(thisPath);
+  console.log('About to serve this file: ' + thisPath);
+    fs.readFile(thisPath, function(err, data){
         if(err){
           myError(res);
         }
@@ -56,102 +61,70 @@ function serveFile(path, res){
  * Serves index page.
  * @param {http.ServerResponse} res
  */
-function serveIndex(path, res){
-  console.log('About to read from: ' + path);
-    fs.readdir(path, function(err, files){
+function serveIndex(thisPath, res){
+  console.log('About to read from: ' + thisPath);
+    fs.readdir(thisPath, function(err, files){
         if(err){
             myError(res);
         }
 
-        var html = '<p>Index of ' + path + '</p>';
+        var html = '<p>Index of ' + thisPath + '</p>';
         html += '<ul>';
         html += files.map(function(item){
-            return "<li><a href='"+ item + "'>" + item + '</a></li>';
+            return "<li><a href='"+ path.join(removePublic(thisPath),item) + "'>" + item + '</a></li>';
         }).join('');
         html += '</ul>';
         res.end(html);
     });
 }
 
-function serveDirectory(){
-
-}
-
-/** @function handleRequest
- * Request handler that handles requests and sends response.
- * @param {http.ClientRequest} req - the http request obj.
- * @param {http.ServerRespnse} res - the http response obj.
- */
-function handleRequestBad(req, res) {
-  let originalUrl = req.url;
-  // let originalCwd = process.cwd();
-  // let publicDir = path.join(process.cwd(),'public');
-  // let newUrl = path.join(publicDir,originalUrl);
-  var uri = url.parse(req.url).pathname;
-  var filename = path.join(process.cwd(), uri);
-
-  console.log('Handling the request for: '+originalUrl + '\n Which has the filename: '+filename);
-
-  if(fs.existsSync(filename)){
-    let stats = fs.lstatSync(filename);
-    if(stats.isDirectory()){
-      console.log('It\'s a directory.');
-      var filenameIndex = path.join(filename,'/index.html');
-      if(!fs.existsSync(filenameIndex)){
-        console.log('An index file doesn\'nt exist. Serving this directory: ' + uri);
-        serveIndex(filename, res);
-      }
-      else{
-        console.log('There\'s an index file! Serving: '+filenameIndex);
-        serveFile(filenameIndex, res);
-      }
-
-      if(filename === '/'){
-        serveIndex('public', res);
-        // process.chdir('public');
-      }
-      else{
-        serveIndex(filename, res);
-        // process.chdir(filename);
-      }
-
-    }
-    else if(stats.isFile()){
-      console.log('It\'s a file.');
-      serveFile(newUrl, res);
-    }
-    else{
-      console.log('It\'s neither.');
-      myError(res, 404, 'File not found.');
-    }
-    // switch(newUrl) {
-    //     case '/':
-    //     case '/index.html':
-    //         serveIndex('public',res);
-    //         break;
-    //     case newUrl:
-    //         serveFile('public/'+newUrl, res);
-    //         break;
-    //     default:
-    //         res.statusCode = 404;
-    //         res.end("File Not Found");
-    // }
+function serveDirectory(uri, res){
+  // process.chdir(url);
+  // uri = path.join('public',uri);
+  var indexPath = path.join(uri,'/index.html');
+  if(!fs.existsSync(indexPath)){
+    // console.log('Path doesnt have an index. Making one.');
+    serveIndex(uri, res);
   }
   else{
-    myError(res, 500, 'Yoooo doesn\'t exist: ' + filename);
+    // console.log('Path has an index file, serving: '+indexPath);
+    serveFile(indexPath, res);
   }
-
 }
 
 function handleRequest(req, res){
+
   // /public or /test or /
-  var url = req.url;
+  var uri = req.url;
+  console.log('Handling the request at raw url of: '+uri);
 
   // Current directory plus the desired destination
-  var filename = path.join(__dirname, url);
-  res.end(url);
+  // var fullUrl = uri;
+  // var fullUrl = path.join('public',uri);
+  var realPath = path.join('public',uri);
+  // console.log('The full url is: '+fullUrl);
+  console.log('The real path is: '+realPath);
 
+  if(!fs.existsSync(realPath)){
+    console.log('The  url doesn\'t exist.');
+    myError(res, 404, 'Destination Not Found.');
+    return;
+  }
 
+  var stats = fs.lstatSync(realPath);
+
+  if(stats.isDirectory()) {
+    // console.log('Full url is a directory.');
+    serveDirectory(realPath, res);
+  }
+  else if (stats.isFile()) {
+    // console.log('Full url is a file.');
+    serveFile(realPath, res)
+  }
+  else {
+    // console.log('It\'s neither.');
+    myError(res, 404, 'File not found.');
+  }
 }
 
 // Create the web server
@@ -161,3 +134,9 @@ var server = http.createServer(handleRequest);
 server.listen(PORT, function(){
     console.log("Listening on port " + PORT);
 });
+
+/** @function handleRequest
+ * Request handler that handles requests and sends response.
+ * @param {http.ClientRequest} req - the http request obj.
+ * @param {http.ServerRespnse} res - the http response obj.
+ */
